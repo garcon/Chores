@@ -59,36 +59,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(options)
     }
 
-  if (action === 'register-verify') {
-    const { credential, email } = data
+    if (action === 'register-verify') {
+      const { credential, email } = data
 
-    // Get user
-    const { data: user } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', email)
-      .single()
+      // Get user
+      const { data: user } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .single()
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
+      if (!user) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
 
-    // Get stored challenge
-    const { data: challenge } = await supabase
-      .from('webauthn_challenges')
-      .select('challenge')
-      .eq('user_id', user.id)
-      .eq('type', 'registration')
-      .single()
+      // Get stored challenge
+      const { data: challenge } = await supabase
+        .from('webauthn_challenges')
+        .select('challenge')
+        .eq('user_id', user.id)
+        .eq('type', 'registration')
+        .single()
 
-    if (!challenge) {
-      return NextResponse.json(
-        { error: 'Challenge not found' },
-        { status: 400 }
-      )
-    }
+      if (!challenge) {
+        return NextResponse.json(
+          { error: 'Challenge not found' },
+          { status: 400 }
+        )
+      }
 
-    try {
       const verified = await verifyRegistrationResponse({
         response: credential,
         expectedChallenge: challenge.challenge,
@@ -119,13 +118,9 @@ export async function POST(request: NextRequest) {
         { error: 'Registration verification failed' },
         { status: 400 }
       )
-    } catch (err) {
-      console.error('Registration error:', err)
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Registration failed' },
-        { status: 400 }
-      )
     }
+
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
   } catch (err) {
     console.error('Request error:', err)
     return NextResponse.json(
