@@ -1,6 +1,6 @@
 import { generateRegistrationOptions, verifyRegistrationResponse } from '@simplewebauthn/server'
-import { isoBase64URL } from '@simplewebauthn/server/helpers/iso7z'
 import { createClient } from '@/lib/supabase/server'
+import { Buffer } from 'buffer'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
@@ -17,10 +17,13 @@ export async function POST(request: NextRequest) {
   const { action, data } = await request.json()
 
   if (action === 'register-options') {
+    const userIDBuffer = Buffer.from(user.id)
+    const userIDBase64 = userIDBuffer.toString('base64')
+    
     const options = generateRegistrationOptions({
       rpID: process.env.NEXT_PUBLIC_PASSKEY_RP_ID || 'localhost',
       rpName: 'Chores',
-      userID: isoBase64URL.fromBuffer(Buffer.from(user.id)),
+      userID: new TextEncoder().encode(userIDBase64),
       userName: user.email || '',
       userDisplayName: user.user_metadata?.full_name || user.email || '',
     })
@@ -65,9 +68,10 @@ export async function POST(request: NextRequest) {
 
       if (verified.verified) {
         // Store credential in DB
+        const credentialIdBase64 = Buffer.from(credential.id).toString('base64')
         await supabase.from('webauthn_credentials').insert({
           user_id: user.id,
-          credential_id: isoBase64URL.toBuffer(credential.id).toString('base64'),
+          credential_id: credentialIdBase64,
           public_key: JSON.stringify(credential.response.publicKeyAlgorithm),
           sign_count: credential.response.signCount || 0,
         })

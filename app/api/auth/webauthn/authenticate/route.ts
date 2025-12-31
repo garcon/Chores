@@ -1,6 +1,6 @@
 import { generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server'
-import { isoBase64URL } from '@simplewebauthn/server/helpers/iso7z'
 import { createClient } from '@/lib/supabase/server'
+import { Buffer } from 'buffer'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
     const options = generateAuthenticationOptions({
       rpID: process.env.NEXT_PUBLIC_PASSKEY_RP_ID || 'localhost',
       allowCredentials: credentials?.map((c) => ({
-        id: isoBase64URL.toBuffer(c.credential_id),
-        type: 'public-key',
+        id: Buffer.from(c.credential_id, 'base64'),
+        type: 'public-key' as const,
       })) || [],
     })
 
@@ -73,11 +73,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const credentialIdBase64 = Buffer.from(credential.id).toString('base64')
     const { data: storedCredential } = await supabase
       .from('webauthn_credentials')
       .select('*')
       .eq('user_id', user.id)
-      .eq('credential_id', isoBase64URL.toBuffer(credential.id).toString('base64'))
+      .eq('credential_id', credentialIdBase64)
       .single()
 
     if (!storedCredential) {
@@ -93,8 +94,8 @@ export async function POST(request: NextRequest) {
         expectedChallenge: challenge.challenge,
         expectedOrigin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
         expectedRPID: process.env.NEXT_PUBLIC_PASSKEY_RP_ID || 'localhost',
-        credentialPublicKey: isoBase64URL.toBuffer(storedCredential.public_key),
-        credentialID: isoBase64URL.toBuffer(storedCredential.credential_id),
+        credentialPublicKey: Buffer.from(storedCredential.public_key, 'base64'),
+        credentialID: Buffer.from(storedCredential.credential_id, 'base64'),
         signCount: storedCredential.sign_count,
       })
 
