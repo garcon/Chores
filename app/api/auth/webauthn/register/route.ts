@@ -5,34 +5,45 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  }
-
   const { action, data } = await request.json()
 
   if (action === 'register-options') {
-    const userIDBuffer = Buffer.from(user.id)
-    const userIDBase64 = userIDBuffer.toString('base64')
-    
+    const { email } = data
+
+    // Check if user already exists
+    const { data: existingUser } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single()
+
+    let userId: string
+    if (existingUser) {
+      userId = existingUser.id
+    } else {
+      // Create new user profile
+      const newId = crypto.randomUUID()
+      await supabase.from('profiles').insert({
+        id: newId,
+        email,
+        full_name: null,
+      })
+      userId = newId
+    }
+
     const options = generateRegistrationOptions({
       rpID: process.env.NEXT_PUBLIC_PASSKEY_RP_ID || 'localhost',
       rpName: 'Chores',
-      userID: new TextEncoder().encode(userIDBase64),
-      userName: user.email || '',
-      userDisplayName: user.user_metadata?.full_name || user.email || '',
+      userID: new TextEncoder().encode(userId),
+      userName: email,
+      userDisplayName: email,
     })
 
     // Store challenge in session/DB
     await supabase
       .from('webauthn_challenges')
       .upsert({
-        user_id: user.id,
+        user_id: userId,
         challenge: options.challenge,
         type: 'registration',
       })
@@ -42,6 +53,17 @@ export async function POST(request: NextRequest) {
 
   if (action === 'register-verify') {
     const { credential, email } = data
+
+    // Get user
+    const { data: user } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single()
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
 
     // Get stored challenge
     const { data: challenge } = await supabase
