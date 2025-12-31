@@ -4,52 +4,60 @@ import { Buffer } from 'buffer'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
-  const { action, data } = await request.json()
+  try {
+    const supabase = await createClient()
+    const { action, data } = await request.json()
 
-  if (action === 'register-options') {
-    const { email } = data
+    if (action === 'register-options') {
+      const { email } = data
 
-    // Check if user already exists
-    const { data: existingUser } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', email)
-      .single()
+      // Check if user already exists
+      const { data: existingUser, error: userError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .single()
 
-    let userId: string
-    if (existingUser) {
-      userId = existingUser.id
-    } else {
-      // Create new user profile
-      const newId = crypto.randomUUID()
-      await supabase.from('profiles').insert({
-        id: newId,
-        email,
-        full_name: null,
+      if (userError && userError.code !== 'PGRST116') {
+        throw userError
+      }
+
+      let userId: string
+      if (existingUser) {
+        userId = existingUser.id
+      } else {
+        // Create new user profile
+        const newId = crypto.randomUUID()
+        const { error: insertError } = await supabase.from('profiles').insert({
+          id: newId,
+          email,
+          full_name: null,
+        })
+        if (insertError) throw insertError
+        userId = newId
+      }
+
+      const options = generateRegistrationOptions({
+        rpID: process.env.NEXT_PUBLIC_PASSKEY_RP_ID || 'localhost',
+        rpName: 'Chores',
+        userID: new Uint8Array(Buffer.from(userId)),
+        userName: email,
+        userDisplayName: email,
       })
-      userId = newId
+
+      // Store challenge in session/DB
+      const { error: challengeError } = await supabase
+        .from('webauthn_challenges')
+        .upsert({
+          user_id: userId,
+          challenge: options.challenge,
+          type: 'registration',
+        })
+
+      if (challengeError) throw challengeError
+
+      return NextResponse.json(options)
     }
-
-    const options = generateRegistrationOptions({
-      rpID: process.env.NEXT_PUBLIC_PASSKEY_RP_ID || 'localhost',
-      rpName: 'Chores',
-      userID: new Uint8Array(Buffer.from(userId)),
-      userName: email,
-      userDisplayName: email,
-    })
-
-    // Store challenge in session/DB
-    await supabase
-      .from('webauthn_challenges')
-      .upsert({
-        user_id: userId,
-        challenge: options.challenge,
-        type: 'registration',
-      })
-
-    return NextResponse.json(options)
-  }
 
   if (action === 'register-verify') {
     const { credential, email } = data
@@ -114,11 +122,15 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       console.error('Registration error:', err)
       return NextResponse.json(
-        { error: 'Registration failed' },
+        { error: err instanceof Error ? err.message : 'Registration failed' },
         { status: 400 }
       )
     }
+  } catch (err) {
+    console.error('Request error:', err)
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Invalid request' },
+      { status: 400 }
+    )
   }
-
-  return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
 }
