@@ -145,9 +145,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
+    <div className="flex min-h-screen items-center justify-center p-4" suppressHydrationWarning>
+      <div className="w-full max-w-md space-y-8" suppressHydrationWarning>
+        <div className="text-center" suppressHydrationWarning>
           <h2 className="text-3xl font-bold">Přihlášení</h2>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
             Chores - Domácí práce
@@ -156,7 +156,7 @@ export default function LoginPage() {
 
         {/* MODE CHOICE */}
         {mode === 'choose' && (
-          <div className="mt-8 space-y-4">
+          <div className="mt-8 space-y-4" suppressHydrationWarning>
             <button
               onClick={() => setMode('passkey')}
               className="w-full rounded-lg border-2 border-blue-600 p-4 text-center hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"
@@ -183,7 +183,7 @@ export default function LoginPage() {
 
         {/* PASSKEY MODE */}
         {mode === 'passkey' && (
-          <div className="mt-8 space-y-4">
+          <div className="mt-8 space-y-4" suppressHydrationWarning>
             <div>
               <label htmlFor="email" className="block text-sm font-medium">
                 Email
@@ -246,7 +246,7 @@ export default function LoginPage() {
 
         {/* MAGIC LINK MODE */}
         {mode === 'magic-link' && (
-          <div className="mt-8 space-y-4">
+          <div className="mt-8 space-y-4" suppressHydrationWarning>
             <div>
               <label htmlFor="email" className="block text-sm font-medium">
                 Email
