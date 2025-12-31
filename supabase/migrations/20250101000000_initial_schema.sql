@@ -187,6 +187,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Create webauthn_challenges table
+CREATE TABLE webauthn_challenges (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  challenge TEXT NOT NULL,
+  type TEXT CHECK (type IN ('registration', 'authentication')) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  UNIQUE(user_id, type)
+);
+
+-- Create webauthn_credentials table
+CREATE TABLE webauthn_credentials (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  credential_id TEXT UNIQUE NOT NULL,
+  public_key TEXT NOT NULL,
+  sign_count INTEGER DEFAULT 0 NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
 -- Trigger to create profile on signup
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
