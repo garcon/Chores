@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const options = generateRegistrationOptions({
       rpID: process.env.NEXT_PUBLIC_PASSKEY_RP_ID || 'localhost',
       rpName: 'Chores',
-      userID: new TextEncoder().encode(userId),
+      userID: new Uint8Array(Buffer.from(userId)),
       userName: email,
       userDisplayName: email,
     })
